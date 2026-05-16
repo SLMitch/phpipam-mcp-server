@@ -341,12 +341,23 @@ def search_hostname(hostname: str, limit: int = 10) -> str:
         limit: Maximum number of results to return (default: 10, max: 50)
     """
     try:
-        result = make_request(f"addresses/search_hostname/{hostname}/")
+        if '*' in hostname:
+            import fnmatch
+            result = make_request("addresses/")
+            if not result.get('success'):
+                return f"API Error: {result.get('message', 'Failed to fetch addresses')}"
+            
+            all_addresses = result.get('data', [])
+            addresses = [
+                addr for addr in all_addresses 
+                if addr.get('hostname') and fnmatch.fnmatch(addr.get('hostname', '').lower(), hostname.lower())
+            ]
+        else:
+            result = make_request(f"addresses/search_hostname/{hostname}/")
+            if not result.get('success'):
+                return f"API Error: {result.get('message', 'No results found')}"
+            addresses = result.get('data', [])
 
-        if not result.get('success'):
-            return f"API Error: {result.get('message', 'No results found')}"
-
-        addresses = result.get('data', [])
         if not addresses:
             return f"No addresses found matching hostname '{hostname}'"
 
