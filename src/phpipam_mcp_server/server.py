@@ -331,6 +331,38 @@ def search_addresses(ip_or_hostname: str, limit: int = 10) -> str:
         return _handle_error(e, f"searching for '{ip_or_hostname}'")
 
 @mcp.tool()
+def search_hostname(hostname: str, limit: int = 10) -> str:
+    """Search for IP addresses by exact or partial hostname in phpIPAM.
+
+    CONTEXT OPTIMIZATION: Limited to 10 results by default.
+
+    Args:
+        hostname: Hostname to search for
+        limit: Maximum number of results to return (default: 10, max: 50)
+    """
+    try:
+        result = make_request(f"addresses/search_hostname/{hostname}/")
+
+        if not result.get('success'):
+            return f"API Error: {result.get('message', 'No results found')}"
+
+        addresses = result.get('data', [])
+        if not addresses:
+            return f"No addresses found matching hostname '{hostname}'"
+
+        # Apply limit and field filtering
+        addresses, truncated = apply_result_limit(addresses, limit, 50)
+        default_fields = ['id', 'subnetId', 'ip', 'hostname', 'description']
+        addresses = apply_field_filtering(addresses, "", default_fields)
+
+        return format_address_output(addresses, hostname, limit, truncated)
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        if "404" in str(e):
+            return f"No addresses found matching hostname '{hostname}'."
+        return _handle_error(e, f"searching for hostname '{hostname}'")
+
+@mcp.tool()
 def get_subnet_details(subnet_id: str, include_addresses: bool = False,
                       address_limit: int = 10) -> str:
     """Get detailed information about a specific subnet.
